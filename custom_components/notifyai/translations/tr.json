@@ -34,5 +34,21 @@
                 }
             }
         }
+    },
+    "services": {
+        "generate": {
+            "name": "Bildirim Oluştur",
+            "description": "Yapay zeka ile bildirim oluşturur.",
+            "fields": {
+                "audio_device": {
+                    "name": "Sesli Okuma Cihazı (TTS)",
+                    "description": "Bildirimin sesli okunacağı hoparlör."
+                },
+                "tts_service": {
+                    "name": "TTS Servisi",
+                    "description": "Kullanılacak ses sentezleme servisi (örn: tts.google_translate_say)."
+                }
+            }
+        }
     }
 }
