@@ -40,7 +40,8 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return AiNotificationOptionsFlowHandler(config_entry)
+        return AiNotificationOptionsFlowHandler()
+
 
 class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options."""
