@@ -32,8 +32,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
     hass.data[DOMAIN][entry.entry_id] = {
         CONF_API_KEY: api_key,
-        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-1.5-flash-002")
+        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-1.5-flash-001")
     }
+
+    # Debug: List available models to help user find correct one
+    hass.async_create_task(log_available_models(hass, api_key))
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
@@ -245,3 +248,18 @@ async def call_gemini_api(
                 return data["candidates"][0]["content"]["parts"][0]["text"]
             except (KeyError, IndexError) as e:
                 raise Exception(f"Unexpected API response format: {data}")
+
+async def log_available_models(hass: HomeAssistant, api_key: str):
+    """Query API to list available models and log them."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    models = [m['name'] for m in data.get('models', [])]
+                    _LOGGER.warning("✅ NotifyAI - Available Models for your Key: %s", ", ".join(models))
+                else:
+                    _LOGGER.error("❌ NotifyAI - Could not list models: %s", await response.text())
+    except Exception as e:
+        _LOGGER.error("❌ NotifyAI - Error listing models: %s", e)
