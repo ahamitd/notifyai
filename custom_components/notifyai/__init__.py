@@ -53,6 +53,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         # Service call override
         notify_service_arg = call.data.get("notify_service")
+        
+        # TTS arguments
+        audio_device = call.data.get("audio_device")
+        tts_service = call.data.get("tts_service", "tts.google_translate_say")
 
         model_name = hass.data[DOMAIN][entry.entry_id][CONF_MODEL]
 
@@ -126,6 +130,21 @@ Mode: {mode}"""
                          _LOGGER.error("Failed to call notify service %s: %s", target, e)
                 else:
                     _LOGGER.warning("Invalid notify_service format: %s", target)
+            
+            # Send TTS if audio device is selected
+            if audio_device and tts_service:
+                try:
+                    if "." in tts_service:
+                        tts_domain, tts_svc = tts_service.split(".", 1)
+                        await hass.services.async_call(
+                            tts_domain, tts_svc,
+                            {"entity_id": audio_device, "message": body},
+                            blocking=False
+                        )
+                    else:
+                        _LOGGER.error("Invalid TTS service format: %s", tts_service)
+                except Exception as e:
+                    _LOGGER.error("Failed to call TTS service: %s", e)
 
             return {
                 "title": title,

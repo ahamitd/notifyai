@@ -61,3 +61,18 @@ generate:
       example: "notify.mobile_app_iphone"
       selector:
         text:
+    audio_device:
+      name: Sesli Okuma Cihazı (TTS)
+      description: Bildirimin sesli okunacağı hoparlör veya medya oynatıcı.
+      required: false
+      selector:
+        entity:
+          domain: media_player
+    tts_service:
+      name: TTS Servisi
+      description: Kullanılacak ses sentezleme servisi. Varsayılan: tts.google_translate_say
+      required: false
+      default: "tts.google_translate_say"
+      example: "tts.cloud_say"
+      selector:
+        text:
