@@ -10,6 +10,22 @@ A professional-grade AI notification system for Home Assistant. It transforms st
 - **📸 Visual Intelligence (Vision)**: Send an image, and the AI will describe what it sees ("A courier with a package") instead of generic text.
 - **🎭 Personas**: Define a character (e.g., `persona: "Jarvis"`). The AI will adopt this personality completely.
 - **📡 Multi-Device Sync**: Configure up to 4 devices in Settings. The AI will automatically blast the notification to all of them.
+- **🧠 Smart Context**: Analyzes multiple data points to generate relevant content.
+
+## Prerequisites
+
+> [!IMPORTANT]
+> Before installing this integration, you must install the official **Google Generative AI** integration in Home Assistant:
+> 1. Go to **Settings > Devices & Services > Add Integration**
+> 2. Search for "**Google Generative AI**"
+> 3. Follow the setup wizard to connect your Google account
+> 
+> This ensures the required `google-generativeai` Python library is installed on your system.
+>
+> **Alternative (Advanced)**: If you have SSH/Terminal access, you can manually install the library:
+> ```bash
+> pip install google-generativeai
+> ```
 
 ## Installation
 
