@@ -2,7 +2,7 @@
     "config": {
         "step": {
             "user": {
-                "title": "AI Bildirim Oluşturucu Kurulumu",
+                "title": "NotifyAI Kurulumu",
                 "description": "Google Gemini API anahtarınızı girin.",
                 "data": {
                     "api_key": "API Anahtarı"
@@ -16,7 +16,7 @@
     "options": {
         "step": {
             "init": {
-                "title": "AI Bildirim Ayarları",
+                "title": "NotifyAI Ayarları",
                 "description": "Yapay zeka modelini ve bildirim cihazlarınızı yapılandırın.",
                 "data": {
                     "model": "AI Modeli (örn: gemini-flash-latest)",

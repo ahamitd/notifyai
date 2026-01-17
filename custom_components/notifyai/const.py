@@ -1,4 +1,4 @@
-DOMAIN = "ai_notification"
+DOMAIN = "notifyai"
 CONF_API_KEY = "api_key"
 CONF_MODEL = "model"
 CONF_NOTIFY_SERVICE_1 = "notify_service_1"

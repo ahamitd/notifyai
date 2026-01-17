@@ -2,7 +2,7 @@
     "config": {
         "step": {
             "user": {
-                "title": "AI Notification Generator Setup",
+                "title": "NotifyAI Setup",
                 "description": "Enter your Google Gemini API key.",
                 "data": {
                     "api_key": "API Key"
