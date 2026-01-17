@@ -21,7 +21,6 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        _LOGGER.error("DEBUG: async_step_user called")
         errors = {}
         if user_input is not None:
             # Validate input (simple check if key is not empty)
@@ -45,10 +44,6 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options."""
-
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
