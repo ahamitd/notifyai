@@ -39,12 +39,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def generate_notification(call: ServiceCall) -> ServiceResponse:
         """Handle the service call."""
+        from datetime import datetime
+        
         event = call.data.get("event")
-        time = call.data.get("time")
-        context = call.data.get("context")
-        mode = call.data.get("mode")
+        custom_title = call.data.get("custom_title")  # New: optional custom title
+        context = call.data.get("context", "")  # Optional now
+        mode = call.data.get("mode", "smart")  # Default to smart
         persona = call.data.get("persona") 
         image_path = call.data.get("image_path")
+        
+        # Auto-generate time if not provided
+        time = datetime.now().strftime('%H:%M')
         
         # Service call override
         notify_service_arg = call.data.get("notify_service")
@@ -58,12 +63,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if persona:
              system_prompt += f"\n\nIMPORTANT: You must adopt the persona of '{persona}'. Ignore the standard 'Mode' setting. Act exactly like {persona} would."
 
-        user_message_text = f"""
-Event: {event}
+        # Build user message (context is optional)
+        user_message_text = f"""Event: {event}
 Time: {time}
-Context: {context}
-Mode: {mode}
-"""
+Mode: {mode}"""
+        
+        if context:
+            user_message_text += f"\nContext: {context}"
 
         image_data = None
         if image_path:
@@ -77,19 +83,24 @@ Mode: {mode}
                 hass, api_key, model_name, system_prompt, user_message_text, image_data
             )
             
-            title = ""
-            body = ""
-            
-            lines = response_text.strip().split('\n')
-            for line in lines:
-                if line.startswith("Title:"):
-                    title = line.replace("Title:", "").strip()
-                elif line.startswith("Body:"):
-                    body = line.replace("Body:", "").strip()
-            
-            if not title and not body:
-                 title = "Notification"
-                 body = response_text
+            # Use custom title if provided, otherwise parse AI response
+            if custom_title:
+                title = custom_title
+                body = response_text.strip()
+            else:
+                title = ""
+                body = ""
+                
+                lines = response_text.strip().split('\n')
+                for line in lines:
+                    if line.startswith("Title:"):
+                        title = line.replace("Title:", "").strip()
+                    elif line.startswith("Body:"):
+                        body = line.replace("Body:", "").strip()
+                
+                if not title and not body:
+                     title = "Bildirim"
+                     body = response_text
 
             # Determine targets
             targets = []

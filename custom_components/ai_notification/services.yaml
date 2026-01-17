@@ -1,57 +1,62 @@
 generate:
-  name: Generate Notification
-  description: Generates a notification using AI, with optional image analysis and custom personas.
+  name: Bildirim Oluştur
+  description: Yapay zeka ile bildirim oluşturur. İsteğe bağlı olarak görsel analiz ve özel karakterler kullanabilir.
   fields:
     event:
-      name: Event
-      description: The event that triggered the notification (e.g., "Motion detected").
+      name: Olay
+      description: Bildirimi tetikleyen olay (örn. "Hareket algılandı", "Kapı açıldı").
       required: true
-      example: "Motion detected in garden"
+      example: "Bahçede hareket algılandı"
       selector:
         text:
-    time:
-      name: Time
-      description: The time the event occurred.
-      required: true
-      example: "22:00"
+    custom_title:
+      name: Özel Başlık (Opsiyonel)
+      description: Bildirimin başlığı. Boş bırakırsanız yapay zeka otomatik oluşturur.
+      required: false
+      example: "Güvenlik Uyarısı"
       selector:
         text:
     context:
-      name: Context
-      description: Context about the home (e.g., "Nobody home", "Door locked").
-      required: true
-      example: "Nobody home"
+      name: Bağlam (Opsiyonel)
+      description: Ev hakkında ek bilgi (örn. "Alarm aktif", "Gece modu açık"). Boş bırakılabilir.
+      required: false
+      example: "Evde kimse yok"
       selector:
         text:
     mode:
-      name: Mode
-      description: The style/tone of the notification (ignored if Persona is set).
+      name: Mod
+      description: Bildirimin tonu ve stili (Karakter seçilirse göz ardı edilir).
       required: false
-      example: "formal"
+      default: "smart"
+      example: "fun"
       selector:
         select:
           options:
-            - "fun"
-            - "smart"
-            - "formal"
-            - "mixed"
+            - label: "Eğlenceli (Şakacı ve neşeli)"
+              value: "fun"
+            - label: "Zeki (Bilgilendirici ve akıllı)"
+              value: "smart"
+            - label: "Resmi (Ciddi ve profesyonel)"
+              value: "formal"
+            - label: "Karışık (Rastgele seçim)"
+              value: "mixed"
     persona:
-      name: Persona (Pro)
-      description: A specific character or role for the AI (e.g., "Jarvis", "Grumpy Guard", "Funny Mom"). Overrides Mode.
+      name: Karakter (İleri Seviye)
+      description: Yapay zekaya özel bir karakter verin (örn. "Jarvis", "Sinirli Bekçi"). Mod ayarını ezer.
       required: false
       example: "Jarvis"
       selector:
         text:
     image_path:
-      name: Image Path (Pro)
-      description: Path to an image file (e.g. /tmp/snap.jpg) or URL to analyze.
+      name: Görsel Yolu (İleri Seviye)
+      description: Analiz edilecek görsel dosyasının yolu (örn. /config/www/kapi.jpg).
       required: false
       example: "/config/www/snapshot.jpg"
       selector:
         text:
     notify_service:
-      name: Notify Service (Optional)
-      description: The notification service to automatically call with the result (e.g., notify.mobile_app_iphone).
+      name: Bildirim Servisi (Opsiyonel)
+      description: Bildirimin gönderileceği servis (örn. notify.mobile_app_iphone). Ayarlarda tanımlıysa boş bırakılabilir.
       required: false
       example: "notify.mobile_app_iphone"
       selector:

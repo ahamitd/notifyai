@@ -1,0 +1,38 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "AI Bildirim Oluşturucu Kurulumu",
+                "description": "Google Gemini API anahtarınızı girin.",
+                "data": {
+                    "api_key": "API Anahtarı"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "API anahtarı geçersiz veya bağlantı kurulamadı."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "AI Bildirim Ayarları",
+                "description": "Yapay zeka modelini ve bildirim cihazlarınızı yapılandırın.",
+                "data": {
+                    "model": "AI Modeli (örn: gemini-flash-latest)",
+                    "notify_service_1": "Bildirim Cihazı 1",
+                    "notify_service_2": "Bildirim Cihazı 2",
+                    "notify_service_3": "Bildirim Cihazı 3",
+                    "notify_service_4": "Bildirim Cihazı 4"
+                },
+                "data_description": {
+                    "model": "Kullanılacak Google Gemini modeli",
+                    "notify_service_1": "Birinci bildirim servisi (örn: notify.mobile_app_iphone)",
+                    "notify_service_2": "İkinci bildirim servisi (opsiyonel)",
+                    "notify_service_3": "Üçüncü bildirim servisi (opsiyonel)",
+                    "notify_service_4": "Dördüncü bildirim servisi (opsiyonel)"
+                }
+            }
+        }
+    }
+}

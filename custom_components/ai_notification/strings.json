@@ -1,0 +1,31 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "AI Notification Generator Setup",
+                "description": "Enter your Google Gemini API key.",
+                "data": {
+                    "api_key": "API Key"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Invalid API key or connection failed."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "AI Notification Settings",
+                "description": "Configure AI model and notification devices.",
+                "data": {
+                    "model": "AI Model (e.g., gemini-flash-latest)",
+                    "notify_service_1": "Notification Device 1",
+                    "notify_service_2": "Notification Device 2",
+                    "notify_service_3": "Notification Device 3",
+                    "notify_service_4": "Notification Device 4"
+                }
+            }
+        }
+    }
+}
