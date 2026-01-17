@@ -1,11 +1,11 @@
 import logging
 import os
-import voluptuous as vol
-
+import json
+import base64
+import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
-from homeassistant.helpers import config_validation as cv
 from homeassistant.const import CONF_API_KEY
 
 from .const import (
@@ -58,27 +58,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if persona:
              system_prompt += f"\n\nIMPORTANT: You must adopt the persona of '{persona}'. Ignore the standard 'Mode' setting. Act exactly like {persona} would."
 
-        user_message_parts = []
         user_message_text = f"""
 Event: {event}
 Time: {time}
 Context: {context}
 Mode: {mode}
 """
-        user_message_parts.append(user_message_text)
 
         image_data = None
         if image_path:
             try:
-                 image_data = await hass.async_add_executor_job(load_image, image_path)
-                 if image_data:
-                     user_message_parts.append(image_data)
+                 image_data = await hass.async_add_executor_job(load_image_base64, image_path)
             except Exception as e:
                 _LOGGER.warning("Could not load image at %s: %s", image_path, e)
 
         try:
-            response_text = await hass.async_add_executor_job(
-                _call_api, api_key, model_name, system_prompt, user_message_parts
+            response_text = await call_gemini_api(
+                hass, api_key, model_name, system_prompt, user_message_text, image_data
             )
             
             title = ""
@@ -98,10 +94,8 @@ Mode: {mode}
             # Determine targets
             targets = []
             if notify_service_arg:
-                # If provided in call, use ONLY that (override)
                 targets.append(notify_service_arg)
             else:
-                # Use configured defaults
                 for key in [CONF_NOTIFY_SERVICE_1, CONF_NOTIFY_SERVICE_2, CONF_NOTIFY_SERVICE_3, CONF_NOTIFY_SERVICE_4]:
                     srv = entry.options.get(key)
                     if srv and srv.strip():
@@ -150,7 +144,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update listener."""
-    # We don't need to do anything specific here as we read options dynamically in the service call
     pass
 
 def load_system_prompt(hass: HomeAssistant) -> str:
@@ -163,36 +156,62 @@ def load_system_prompt(hass: HomeAssistant) -> str:
         _LOGGER.error("system_prompt.md not found at %s", prompt_path)
         return ""
 
-def load_image(image_path: str):
-    """Loads an image from path using Pillow."""
-    from PIL import Image
+def load_image_base64(image_path: str) -> str:
+    """Loads an image and converts to base64."""
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found at {image_path}")
-    return Image.open(image_path)
-
-def _call_api(api_key: str, model_name: str, system_prompt: str, content_parts: list) -> str:
-    """Helper to call the API (blocking I/O)."""
     
-    if api_key.startswith("AIza"):
-        import google.generativeai as genai
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                f'models/{model_name}', 
-                system_instruction=system_prompt
-            )
-            response = model.generate_content(content_parts)
-            return response.text
-        except Exception as e:
-            if "404" in str(e) and model_name != "gemini-flash-latest":
-                 _LOGGER.warning("Model %s not found (or no vision support), falling back to gemini-flash-latest", model_name)
-                 model = genai.GenerativeModel(
-                    'models/gemini-flash-latest', 
-                    system_instruction=system_prompt
-                 )
-                 response = model.generate_content(content_parts)
-                 return response.text
-            raise e
+    with open(image_path, "rb") as f:
+        image_bytes = f.read()
+    
+    return base64.b64encode(image_bytes).decode('utf-8')
 
-    else:
-        raise ValueError("Only Google Gemini API keys (starting with 'AIza') are supported.")
+async def call_gemini_api(
+    hass: HomeAssistant,
+    api_key: str, 
+    model_name: str, 
+    system_prompt: str, 
+    user_text: str,
+    image_base64: str = None
+) -> str:
+    """Call Google Gemini API directly via REST."""
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    
+    # Build request payload
+    contents = []
+    parts = [{"text": user_text}]
+    
+    if image_base64:
+        parts.append({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": image_base64
+            }
+        })
+    
+    contents.append({"parts": parts})
+    
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.7
+        }
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise Exception(f"Gemini API error ({response.status}): {error_text}")
+            
+            data = await response.json()
+            
+            # Extract text from response
+            try:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            except (KeyError, IndexError) as e:
+                raise Exception(f"Unexpected API response format: {data}")
