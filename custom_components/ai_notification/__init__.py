@@ -1,8 +1,7 @@
 import logging
 import os
 import voluptuous as vol
-import google.generativeai as genai
-from PIL import Image
+
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
@@ -164,8 +163,9 @@ def load_system_prompt(hass: HomeAssistant) -> str:
         _LOGGER.error("system_prompt.md not found at %s", prompt_path)
         return ""
 
-def load_image(image_path: str) -> Image.Image:
+def load_image(image_path: str):
     """Loads an image from path using Pillow."""
+    from PIL import Image
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found at {image_path}")
     return Image.open(image_path)
@@ -174,6 +174,7 @@ def _call_api(api_key: str, model_name: str, system_prompt: str, content_parts: 
     """Helper to call the API (blocking I/O)."""
     
     if api_key.startswith("AIza"):
+        import google.generativeai as genai
         try:
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel(

@@ -1,4 +1,6 @@
-# AI Notification Generator for Home Assistant (Pro Edition)
+# AI Notification Generator for Home Assistant
+
+<img src="images/logo.png" width="150" align="right" alt="Logo"> (Pro Edition)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 
