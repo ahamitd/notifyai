@@ -1,4 +1,5 @@
 import logging
+import re
 import os
 import json
 import base64
@@ -139,8 +140,9 @@ Mode: {mode}"""
             if audio_device and tts_service:
                 _LOGGER.info("NotifyAI - Attempting TTS on %s via %s", audio_device, tts_service)
                 try:
-                    # Remove markdown characters from body for better TTS
+                    # Remove markdown characters and emojis from body for better TTS
                     clean_body = body.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
+                    clean_body = re.sub(r'[\U00010000-\U0010ffff]', '', clean_body)
                     
                     # Modern HA format: tts.speak action
                     # target: entity_id: tts_engine (e.g. tts.google_translate_en_com)
