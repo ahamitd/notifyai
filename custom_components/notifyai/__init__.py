@@ -138,32 +138,42 @@ Mode: {mode}"""
             if audio_device and tts_service:
                 _LOGGER.info("NotifyAI - Attempting TTS on %s via %s", audio_device, tts_service)
                 try:
-                    if "." in tts_service:
-                        tts_domain, tts_svc = tts_service.split(".", 1)
-                        # Remove markdown characters from body for better TTS
-                        clean_body = body.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
-                        
-                        await hass.services.async_call(
-                            tts_domain, tts_svc,
-                            {
-                                "entity_id": audio_device, 
-                                "message": clean_body,
-                                "cache": True
-                            },
-                            blocking=False
-                        )
-                        _LOGGER.info("NotifyAI - TTS service call sent successfully")
-                    else:
-                        _LOGGER.error("NotifyAI - Invalid TTS service format (missing dot): %s", tts_service)
+                    # Remove markdown characters from body for better TTS
+                    clean_body = body.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
+                    
+                    # Modern HA format: tts.speak action
+                    # target: entity_id: tts_engine (e.g. tts.google_translate_en_com)
+                    # data: media_player_entity_id: speaker (e.g. media_player.homepod)
+                    
+                    await hass.services.async_call(
+                        "tts", "speak",
+                        {
+                            "entity_id": tts_service,
+                            "media_player_entity_id": audio_device,
+                            "message": clean_body,
+                            "cache": True
+                        },
+                        blocking=False
+                    )
+                    _LOGGER.info("NotifyAI - TTS (tts.speak) call sent successfully")
                 except Exception as e:
-                    _LOGGER.error("NotifyAI - Failed to call TTS service: %s", e)
-                    # Log all available TTS services to help the user
-                    all_services = hass.services.async_services()
-                    if "tts" in all_services:
-                         tts_svcs = [f"tts.{s}" for s in all_services["tts"].keys()]
-                         _LOGGER.warning("NotifyAI - Available TTS services on your system: %s", ", ".join(tts_svcs))
-                    else:
-                         _LOGGER.warning("NotifyAI - No services found in 'tts' domain. Do you have a TTS integration installed?")
+                    _LOGGER.error("NotifyAI - Failed to call tts.speak: %s. Falling back to legacy call.", e)
+                    # Legacy fallback
+                    try:
+                        if "." in tts_service:
+                            tts_domain, tts_svc = tts_service.split(".", 1)
+                            await hass.services.async_call(
+                                tts_domain, tts_svc,
+                                {
+                                    "entity_id": audio_device, 
+                                    "message": clean_body,
+                                    "cache": True
+                                },
+                                blocking=False
+                            )
+                            _LOGGER.info("NotifyAI - Legacy TTS call sent successfully")
+                    except Exception as e2:
+                        _LOGGER.error("NotifyAI - Legacy fallback also failed: %s", e2)
 
             return {
                 "title": title,
