@@ -49,7 +49,9 @@ STYLE MODES (Unless overridden by Persona):
 VARIETY REQUIREMENT:
 - Even if the same event happens multiple times, wording must vary.
 
-OUTPUT FORMAT (STRICT – NO EXTRA TEXT, NO MARKDOWN):
+OUTPUT FORMAT (STRICT – ONLY JSON, NO MARKDOWN):
 
-Title: <generated title>
-Body: <generated body>
+{
+  "title": "<generated title>",
+  "body": "<generated body>"
+}
