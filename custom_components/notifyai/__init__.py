@@ -136,18 +136,27 @@ Mode: {mode}"""
             
             # Send TTS if audio device is selected
             if audio_device and tts_service:
+                _LOGGER.info("NotifyAI - Attempting TTS on %s via %s", audio_device, tts_service)
                 try:
                     if "." in tts_service:
                         tts_domain, tts_svc = tts_service.split(".", 1)
+                        # Remove markdown characters from body for better TTS
+                        clean_body = body.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
+                        
                         await hass.services.async_call(
                             tts_domain, tts_svc,
-                            {"entity_id": audio_device, "message": body},
+                            {
+                                "entity_id": audio_device, 
+                                "message": clean_body,
+                                "cache": True
+                            },
                             blocking=False
                         )
+                        _LOGGER.info("NotifyAI - TTS service call sent successfully")
                     else:
-                        _LOGGER.error("Invalid TTS service format: %s", tts_service)
+                        _LOGGER.error("NotifyAI - Invalid TTS service format (missing dot): %s", tts_service)
                 except Exception as e:
-                    _LOGGER.error("Failed to call TTS service: %s", e)
+                    _LOGGER.error("NotifyAI - Failed to call TTS service: %s", e)
 
             return {
                 "title": title,
