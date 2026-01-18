@@ -140,18 +140,18 @@ Mode: {mode}"""
             if audio_device and tts_service:
                 _LOGGER.info("NotifyAI - Attempting TTS on %s via %s", audio_device, tts_service)
                 try:
+                    # Combine title and body for a more natural speech experience
+                    full_message = f"{title}. {body}"
+                    
                     # Remove markdown characters and emojis from body for better TTS
-                    clean_body = body.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
-                    clean_body = re.sub(r'[\U00010000-\U0010ffff]', '', clean_body)
+                    clean_message = full_message.replace("*", "").replace("#", "").replace("- ", "").replace("`", "")
+                    clean_message = re.sub(r'[\U00010000-\U0010ffff]', '', clean_message)
                     
                     # Modern HA format: tts.speak action
-                    # target: entity_id: tts_engine (e.g. tts.google_translate_en_com)
-                    # data: media_player_entity_id: speaker (e.g. media_player.homepod)
-                    
                     tts_data = {
                         "entity_id": tts_service,
                         "media_player_entity_id": audio_device,
-                        "message": clean_body,
+                        "message": clean_message.strip(),
                         "cache": True
                     }
                     if language:
@@ -171,7 +171,7 @@ Mode: {mode}"""
                             tts_domain, tts_svc = tts_service.split(".", 1)
                             legacy_data = {
                                 "entity_id": audio_device, 
-                                "message": clean_body,
+                                "message": clean_message.strip(),
                                 "cache": True
                             }
                             if language:
