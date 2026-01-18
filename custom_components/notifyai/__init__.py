@@ -60,6 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # TTS arguments
         audio_device = call.data.get("audio_device")
         tts_service = call.data.get("tts_service", "tts.google_translate_say")
+        language = call.data.get("language")
 
         model_name = hass.data[DOMAIN][entry.entry_id][CONF_MODEL]
 
@@ -145,14 +146,18 @@ Mode: {mode}"""
                     # target: entity_id: tts_engine (e.g. tts.google_translate_en_com)
                     # data: media_player_entity_id: speaker (e.g. media_player.homepod)
                     
+                    tts_data = {
+                        "entity_id": tts_service,
+                        "media_player_entity_id": audio_device,
+                        "message": clean_body,
+                        "cache": True
+                    }
+                    if language:
+                        tts_data["language"] = language
+                        
                     await hass.services.async_call(
                         "tts", "speak",
-                        {
-                            "entity_id": tts_service,
-                            "media_player_entity_id": audio_device,
-                            "message": clean_body,
-                            "cache": True
-                        },
+                        tts_data,
                         blocking=False
                     )
                     _LOGGER.info("NotifyAI - TTS (tts.speak) call sent successfully")
@@ -162,13 +167,17 @@ Mode: {mode}"""
                     try:
                         if "." in tts_service:
                             tts_domain, tts_svc = tts_service.split(".", 1)
+                            legacy_data = {
+                                "entity_id": audio_device, 
+                                "message": clean_body,
+                                "cache": True
+                            }
+                            if language:
+                                legacy_data["language"] = language
+                                
                             await hass.services.async_call(
                                 tts_domain, tts_svc,
-                                {
-                                    "entity_id": audio_device, 
-                                    "message": clean_body,
-                                    "cache": True
-                                },
+                                legacy_data,
                                 blocking=False
                             )
                             _LOGGER.info("NotifyAI - Legacy TTS call sent successfully")

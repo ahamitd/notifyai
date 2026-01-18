@@ -75,3 +75,10 @@ generate:
       selector:
         entity:
           domain: tts
+    language:
+      name: Dil (TTS)
+      description: "Sesli okuma için kullanılacak dil kodu (örn. 'tr' veya 'en')."
+      required: false
+      example: "tr"
+      selector:
+        text:
