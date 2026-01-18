@@ -70,9 +70,8 @@ generate:
           domain: media_player
     tts_service:
       name: TTS Servisi
-      description: "Kullanılacak ses sentezleme servisi. Varsayılan: tts.google_translate_say"
+      description: "Sesli okuma için kullanılacak motor (örn. tts.google_translate_tr_tr veya tts.cloud_say). Boş bırakılırsa tts.speak varsayılan parametreleri kullanılır."
       required: false
-      default: "tts.google_translate_en_com"
-      example: "tts.cloud_say"
       selector:
-        text:
+        entity:
+          domain: tts
