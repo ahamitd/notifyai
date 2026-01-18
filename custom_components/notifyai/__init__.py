@@ -177,7 +177,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update listener."""
-    pass
+    await hass.config_entries.async_reload(entry.entry_id)
 
 def load_system_prompt(hass: HomeAssistant) -> str:
     """Reads the system prompt from the file."""
