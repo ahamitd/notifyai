@@ -79,9 +79,13 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         api_key = self.config_entry.data.get(CONF_API_KEY)
         dynamic_models = await fetch_models(api_key)
         
-        # 2. Use dynamic list if available, otherwise fallback to hardcoded
+        # 2. Use dynamic list if available, merged with static fallbacks
         if dynamic_models:
-            model_options = dynamic_models
+            # Create a merged dictionary: Static options first, then dynamic overwrite/append
+            # This ensures important fallbacks (like 1.5-flash) are ALWAYS present
+            model_options = MODEL_OPTIONS.copy()
+            model_options.update(dynamic_models)
+            
             # PREFER gemini-1.5-flash-8b or 001 if available in the dynamic list
             # because 2.0 often has 0 quota for new keys
             preferred_defaults = ["gemini-1.5-flash-8b", "gemini-1.5-flash-001", "gemini-1.5-flash"]
