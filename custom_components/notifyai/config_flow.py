@@ -54,7 +54,7 @@ async def fetch_models(api_key):
                 if response.status == 200:
                     data = await response.json()
                     models = {}
-                    model_limits = {}  # Store RPM limits for sorting
+                    model_limits = {}  # Store RPM and RPD limits
                     
                     for m in data.get('models', []):
                         name = m['name'].replace('models/', '')
@@ -66,24 +66,27 @@ async def fetch_models(api_key):
                         # Get rate limits
                         rate_limits = m.get('rateLimits', {})
                         rpm = rate_limits.get('requestsPerMinute', 0)
+                        rpd = rate_limits.get('requestsPerDay', 0)
                         
-                        # Store RPM for sorting
-                        model_limits[name] = rpm
+                        # Store both RPM and RPD
+                        model_limits[name] = {'rpm': rpm, 'rpd': rpd}
                         
-                        # Format display name with RPM
+                        # Format display name with RPM and RPD
                         friendly_name = m.get('displayName', name)
-                        if rpm > 0:
+                        if rpm > 0 and rpd > 0:
+                            models[name] = f"{friendly_name} ({rpm} RPM, {rpd}/gün)"
+                        elif rpm > 0:
                             models[name] = f"{friendly_name} ({rpm} RPM)"
                         else:
                             models[name] = f"{friendly_name}"
                     
-                    # Return models dict and best model (highest RPM)
-                    best_model = max(model_limits, key=model_limits.get) if model_limits else None
-                    return models, best_model
+                    # Return models dict, best model (highest RPD), and limits
+                    best_model = max(model_limits, key=lambda k: model_limits[k]['rpd']) if model_limits else None
+                    return models, best_model, model_limits
                     
     except Exception as e:
         _LOGGER.error("Error fetching models: %s", e)
-    return None, None
+    return None, None, None
 
 async def validate_model(api_key, model_name):
     """Try a tiny generateContent call to check quota/availability."""
@@ -114,7 +117,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         
         # We need to maintain the list of available models across steps if validation fails
         if "model_options" not in self.hass.data.get(DOMAIN, {}):
-             dynamic_models, _ = await fetch_models(api_key)
+             dynamic_models, _, _ = await fetch_models(api_key)
              model_options = dynamic_models if dynamic_models else MODEL_OPTIONS
         else:
              model_options = MODEL_OPTIONS # Fallback
@@ -136,7 +139,13 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         current_model = self.config_entry.options.get(CONF_MODEL)
         
         # 1. Fetch models dynamically
-        dynamic_models, best_model = await fetch_models(api_key)
+        dynamic_models, best_model, model_limits = await fetch_models(api_key)
+        
+        # Store model limits in hass.data for sensors
+        if model_limits:
+            if DOMAIN not in self.hass.data:
+                self.hass.data[DOMAIN] = {}
+            self.hass.data[DOMAIN]["model_limits"] = model_limits
         
         # 2. Use dynamic list ONLY if available
         if dynamic_models:
