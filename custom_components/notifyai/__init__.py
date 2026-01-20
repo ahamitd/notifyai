@@ -104,42 +104,50 @@ Mode: {mode}"""
                 hass, api_key, model_name, system_prompt, user_message_text, image_data, entry.entry_id
             )
             
-            # Use custom title if provided, otherwise parse AI response
+            # Parse AI response first
+            parsed_title = None
+            parsed_body = None
+            
+            try:
+                # 1. Try strict JSON
+                ai_response = json.loads(response_text)
+                parsed_title = ai_response.get("title", "AI Bildirim")
+                parsed_body = ai_response.get("body", "")
+            except:
+                # 2. Try to find JSON block
+                match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if match:
+                    try:
+                        ai_response = json.loads(match.group())
+                        parsed_title = ai_response.get("title", "AI Bildirim")
+                        parsed_body = ai_response.get("body", "")
+                    except:
+                        pass
+                
+                if not parsed_title or not parsed_body:
+                    # 3. Fallback: Parse "Title: ... Body: ..." format
+                    parsed_title = "Bildirim"
+                    parsed_body = response_text
+                    
+                    for line in response_text.split('\n'):
+                        clean_line = line.strip()
+                        if clean_line.lower().startswith('title:'):
+                            parsed_title = clean_line.split(':', 1)[1].strip()
+                        elif clean_line.lower().startswith('body:'):
+                            parsed_body = clean_line.split(':', 1)[1].strip()
+                        elif clean_line.lower().startswith('başlık:'):
+                            parsed_title = clean_line.split(':', 1)[1].strip()
+                        elif clean_line.lower().startswith('gönderi:'):
+                            parsed_body = clean_line.split(':', 1)[1].strip()
+            
+            # Use custom title if provided, otherwise use parsed title
             if custom_title:
                 title = custom_title
-                body = response_text.strip()
+                body = parsed_body  # Use only the body part from AI response
             else:
-                try:
-                    # 1. Try strict JSON
-                    ai_response = json.loads(response_text)
-                    title = ai_response.get("title", "AI Bildirim")
-                    body = ai_response.get("body", "")
-                except:
-                    # 2. Try to find JSON block
-                    match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                    if match:
-                        try:
-                            ai_response = json.loads(match.group())
-                            title = ai_response.get("title", "AI Bildirim")
-                            body = ai_response.get("body", "")
-                        except:
-                            pass
-                    
-                    if not title or not body:
-                        # 3. Fallback: Parse "Title: ... Body: ..." format
-                        title = "Bildirim"
-                        body = response_text
-                        
-                        for line in response_text.split('\n'):
-                            clean_line = line.strip()
-                            if clean_line.lower().startswith('title:'):
-                                title = clean_line.split(':', 1)[1].strip()
-                            elif clean_line.lower().startswith('body:'):
-                                body = clean_line.split(':', 1)[1].strip()
-                            elif clean_line.lower().startswith('başlık:'):
-                                title = clean_line.split(':', 1)[1].strip()
-                            elif clean_line.lower().startswith('gönderi:'):
-                                body = clean_line.split(':', 1)[1].strip()
+                title = parsed_title
+                body = parsed_body
+
 
             # Determine targets
             targets = []
