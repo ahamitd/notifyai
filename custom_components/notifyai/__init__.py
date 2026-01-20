@@ -44,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         CONF_AI_PROVIDER: provider,
         CONF_API_KEY: api_key,  # Store for backward compatibility
-        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-flash-latest" if provider == "gemini" else "llama-3.1-70b-versatile"),
+        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-flash-latest" if provider == "gemini" else "llama-3.3-70b-versatile"),
         "usage_data": {
             "daily_count": 0,
             "last_call_time": None,
