@@ -51,6 +51,14 @@ class NotifyAIUsageSensor(SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        quota_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("quota_data", {})
+        
+        # If we have real quota data from API, use it
+        if quota_data and 'rpd_limit' in quota_data and 'rpd_remaining' in quota_data:
+            used = quota_data['rpd_limit'] - quota_data['rpd_remaining']
+            return used
+        
+        # Fallback to legacy local counting
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
         
         # Check if we need to reset daily counter
@@ -74,6 +82,7 @@ class NotifyAIUsageSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional state attributes."""
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
+        quota_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("quota_data", {})
         current_model = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "Bilinmiyor")
         provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
         
@@ -86,9 +95,18 @@ class NotifyAIUsageSensor(SensorEntity):
             "current_model": current_model,
             "last_call_time": usage_data.get("last_call_time", "Henüz çağrı yapılmadı"),
             "last_call_status": usage_data.get("last_call_status", "Bilinmiyor"),
-            "daily_count": usage_data.get("daily_count", 0),
-            "last_reset": usage_data.get("last_reset", "Henüz sıfırlanmadı"),
         }
+        
+        # Add quota data source if available
+        if quota_data:
+            attributes["data_source"] = quota_data.get("source", "local_count")
+            attributes["last_updated"] = quota_data.get("last_updated", "Bilinmiyor")
+            if 'rpd_limit' in quota_data and 'rpd_remaining' in quota_data:
+                attributes["daily_used"] = quota_data['rpd_limit'] - quota_data['rpd_remaining']
+                attributes["daily_limit"] = quota_data['rpd_limit']
+        else:
+            attributes["data_source"] = "local_count"
+            attributes["daily_used"] = usage_data.get("daily_count", 0)
         
         # Add error message if last call failed
         if usage_data.get("last_error"):
@@ -128,6 +146,13 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
     @property
     def native_value(self):
         """Return remaining requests."""
+        quota_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("quota_data", {})
+        
+        # If we have real quota data from API, use it
+        if quota_data and 'rpd_remaining' in quota_data:
+            return quota_data['rpd_remaining']
+        
+        # Fallback to calculating from local count
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
         daily_count = usage_data.get("daily_count", 0)
         
@@ -141,21 +166,34 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
     @property
     def extra_state_attributes(self):
         """Return additional attributes."""
+        quota_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("quota_data", {})
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
         model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
-        daily_limit = self._get_model_daily_limit(model_name)
-        daily_count = usage_data.get("daily_count", 0)
         
         # Get provider display name
         provider_name = "Google Gemini" if provider == "gemini" else "Groq"
+        
+        # Use quota data if available, otherwise calculate
+        if quota_data and 'rpd_limit' in quota_data:
+            daily_limit = quota_data['rpd_limit']
+            remaining = quota_data.get('rpd_remaining', 0)
+            used = daily_limit - remaining
+            data_source = quota_data.get('source', 'api_headers')
+        else:
+            daily_limit = self._get_model_daily_limit(model_name)
+            used = usage_data.get("daily_count", 0)
+            remaining = max(0, daily_limit - used)
+            data_source = 'local_count'
         
         return {
             "ai_provider": provider,
             "provider_name": provider_name,
             "model": model_name,
             "daily_limit": daily_limit,
-            "used": daily_count,
+            "used": used,
+            "data_source": data_source,
+            "last_updated": quota_data.get("last_updated", "Bilinmiyor") if quota_data else "Bilinmiyor",
         }
     
     def _get_model_daily_limit(self, model_name):
@@ -213,25 +251,33 @@ class NotifyAIDailyLimitSensor(SensorEntity):
         """Return additional attributes."""
         model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
+        quota_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("quota_data", {})
         model_limits = self._hass.data.get(DOMAIN, {}).get("model_limits", {})
         
         # Get provider display name
         provider_name = "Google Gemini" if provider == "gemini" else "Groq"
         
-        # Get limits based on provider
-        if provider == "groq":
-            limits = GROQ_MODEL_LIMITS.get(model_name, {"rpm": 8000, "rpd": 14400})
-            rpm = limits['rpm']
-            rpd = limits['rpd']
+        # Use quota data from API if available
+        if quota_data and 'rpd_limit' in quota_data:
+            rpd = quota_data['rpd_limit']
+            rpm = quota_data.get('rpm_limit', 0)
+            data_source = quota_data.get('source', 'api_headers')
         else:
-            # Get limits from API or fallback for Gemini
-            if model_name in model_limits:
-                rpm = model_limits[model_name].get('rpm', 15)
-                rpd = model_limits[model_name].get('rpd', 1500)
-            else:
-                limits = MODEL_LIMITS_FALLBACK.get(model_name, {"rpm": 15, "rpd": 1500})
+            # Get limits based on provider
+            if provider == "groq":
+                limits = GROQ_MODEL_LIMITS.get(model_name, {"rpm": 8000, "rpd": 14400})
                 rpm = limits['rpm']
                 rpd = limits['rpd']
+            else:
+                # Get limits from API or fallback for Gemini
+                if model_name in model_limits:
+                    rpm = model_limits[model_name].get('rpm', 15)
+                    rpd = model_limits[model_name].get('rpd', 1500)
+                else:
+                    limits = MODEL_LIMITS_FALLBACK.get(model_name, {"rpm": 15, "rpd": 1500})
+                    rpm = limits['rpm']
+                    rpd = limits['rpd']
+            data_source = 'static_config'
         
         return {
             "ai_provider": provider,
@@ -239,6 +285,8 @@ class NotifyAIDailyLimitSensor(SensorEntity):
             "model": model_name,
             "rpm": rpm,
             "rpd": rpd,
+            "data_source": data_source,
+            "last_updated": quota_data.get("last_updated", "Bilinmiyor") if quota_data else "Bilinmiyor",
         }
     
     def _get_model_daily_limit(self, model_name):

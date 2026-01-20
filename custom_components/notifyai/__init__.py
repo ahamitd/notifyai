@@ -374,11 +374,10 @@ async def call_gemini_api(
         }
     }
     
-    # Track usage if entry_id is provided
-    if entry_id and entry_id in hass.data.get(DOMAIN, {}):
-        usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
-        
     async with session.post(url, json=payload) as response:
+        # Extract rate limit headers
+        headers = response.headers
+        
         if response.status != 200:
             error_text = await response.text()
             
@@ -387,19 +386,51 @@ async def call_gemini_api(
                 usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
                 usage_data["last_call_time"] = dt_util.now().isoformat()
                 usage_data["last_call_status"] = f"Hata ({response.status})"
-                usage_data["last_error"] = error_text[:200]  # Limit error message length
+                usage_data["last_error"] = error_text[:200]
             
             raise Exception(f"Gemini API error ({response.status}): {error_text}")
         
         data = await response.json()
         
-        # Update usage tracking with success
+        # Extract and store quota information from headers
         if entry_id and entry_id in hass.data.get(DOMAIN, {}):
+            quota_data = {}
+            
+            # Gemini uses x-ratelimit-* headers
+            # Extract RPM (requests per minute)
+            if 'x-ratelimit-limit-rpm' in headers:
+                quota_data['rpm_limit'] = int(headers.get('x-ratelimit-limit-rpm', 0))
+                quota_data['rpm_remaining'] = int(headers.get('x-ratelimit-remaining-rpm', 0))
+            
+            # Extract RPD (requests per day)
+            if 'x-ratelimit-limit-requests' in headers:
+                quota_data['rpd_limit'] = int(headers.get('x-ratelimit-limit-requests', 0))
+                quota_data['rpd_remaining'] = int(headers.get('x-ratelimit-remaining-requests', 0))
+            
+            # If no specific headers, try generic ones
+            if not quota_data and 'x-ratelimit-limit' in headers:
+                quota_data['rpd_limit'] = int(headers.get('x-ratelimit-limit', 0))
+                quota_data['rpd_remaining'] = int(headers.get('x-ratelimit-remaining', 0))
+            
+            if quota_data:
+                quota_data['last_updated'] = dt_util.now().isoformat()
+                quota_data['source'] = 'api_headers'
+                hass.data[DOMAIN][entry_id]["quota_data"] = quota_data
+                
+                _LOGGER.debug("Gemini quota data updated: %s", quota_data)
+            
+            # Keep legacy usage_data for backward compatibility
             usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
-            usage_data["daily_count"] = usage_data.get("daily_count", 0) + 1
             usage_data["last_call_time"] = dt_util.now().isoformat()
             usage_data["last_call_status"] = "Başarılı"
             usage_data["last_error"] = None
+            
+            # Calculate used from quota if available
+            if quota_data and 'rpd_limit' in quota_data and 'rpd_remaining' in quota_data:
+                usage_data["daily_count"] = quota_data['rpd_limit'] - quota_data['rpd_remaining']
+            else:
+                # Fallback to local counting
+                usage_data["daily_count"] = usage_data.get("daily_count", 0) + 1
         
         # Extract text from response
         try:
@@ -451,11 +482,10 @@ async def call_groq_api(
         "max_tokens": 500
     }
     
-    # Track usage if entry_id is provided
-    if entry_id and entry_id in hass.data.get(DOMAIN, {}):
-        usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
-    
     async with session.post(url, json=payload, headers=headers) as response:
+        # Extract rate limit headers
+        response_headers = response.headers
+        
         if response.status != 200:
             error_text = await response.text()
             
@@ -470,13 +500,49 @@ async def call_groq_api(
         
         data = await response.json()
         
-        # Update usage tracking with success
+        # Extract and store quota information from headers
         if entry_id and entry_id in hass.data.get(DOMAIN, {}):
+            quota_data = {}
+            
+            # Groq uses x-ratelimit-* headers
+            # Extract RPM (requests per minute)
+            if 'x-ratelimit-limit-requests' in response_headers:
+                # Groq provides per-minute and per-day limits
+                quota_data['rpm_limit'] = int(response_headers.get('x-ratelimit-limit-requests', 0))
+                quota_data['rpm_remaining'] = int(response_headers.get('x-ratelimit-remaining-requests', 0))
+            
+            # Extract RPD (requests per day) - Groq typically uses same header for both
+            # We need to check documentation or use model-specific defaults
+            # For now, use GROQ_MODEL_LIMITS as base and update with header data
+            from .const import GROQ_MODEL_LIMITS
+            model_limits = GROQ_MODEL_LIMITS.get(model_name, {"rpm": 8000, "rpd": 14400})
+            quota_data['rpd_limit'] = model_limits.get('rpd', 14400)
+            
+            # Calculate remaining for RPD (Groq doesn't provide this directly)
+            # We'll use the RPM remaining as a proxy or keep local count
+            if 'rpm_remaining' in quota_data:
+                # Store the data we have
+                quota_data['last_updated'] = dt_util.now().isoformat()
+                quota_data['source'] = 'api_headers'
+                hass.data[DOMAIN][entry_id]["quota_data"] = quota_data
+                
+                _LOGGER.debug("Groq quota data updated: %s", quota_data)
+            
+            # Keep legacy usage_data for backward compatibility
             usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
-            usage_data["daily_count"] = usage_data.get("daily_count", 0) + 1
             usage_data["last_call_time"] = dt_util.now().isoformat()
             usage_data["last_call_status"] = "Başarılı"
             usage_data["last_error"] = None
+            
+            # For Groq, we need to maintain local count for RPD since headers only show RPM
+            # Calculate RPD remaining by subtracting local count from limit
+            daily_count = usage_data.get("daily_count", 0) + 1
+            usage_data["daily_count"] = daily_count
+            
+            # Update quota_data with calculated RPD remaining
+            if quota_data:
+                quota_data['rpd_remaining'] = max(0, quota_data['rpd_limit'] - daily_count)
+                hass.data[DOMAIN][entry_id]["quota_data"] = quota_data
         
         # Extract response
         try:
