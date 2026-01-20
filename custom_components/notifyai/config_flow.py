@@ -308,14 +308,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_NOTIFY_SERVICE_4, default=self.config_entry.options.get(CONF_NOTIFY_SERVICE_4, "")): str,
                 vol.Optional("advanced_settings", default=False): bool,
             }),
-            errors=errors,
-            description=(
-                f"**🤖 Mevcut Sağlayıcı:** {provider_display}\\n"
-                f"**🔑 API Anahtarı:** {masked_key}\\n\\n"
-                "**AI Modeli:** Kullanmak istediğiniz yapay zeka modelini seçin\\n"
-                "**Bildirim Servisleri:** Bildirimlerin gönderileceği cihazları belirtin (örn: notify.mobile_app_iphone)\\n\\n"
-                "**⚙️ Gelişmiş Ayarlar:** API anahtarınızı değiştirmek veya sağlayıcıyı değiştirmek için 'Advanced Settings' kutusunu işaretleyin."
-            )
+            errors=errors
         )
 
     async def async_step_advanced(self, user_input=None):
@@ -349,15 +342,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
                     "change_provider": "🔄 Sağlayıcıyı Değiştir",
                     "back": "⬅️ Ana Ayarlara Dön"
                 }),
-            }),
-            description=(
-                f"**🤖 Mevcut Sağlayıcı:** {provider_display}\\n"
-                f"**🔑 Mevcut API Anahtarı:** {masked_key}\\n\\n"
-                "**Gelişmiş Ayarlar Menüsü**\\n\\n"
-                "• **API Anahtarını Değiştir:** Mevcut sağlayıcı için yeni bir API anahtarı girin\\n"
-                "• **Sağlayıcıyı Değiştir:** Gemini ve Groq arasında geçiş yapın\\n"
-                "• **Ana Ayarlara Dön:** Model ve bildirim ayarlarına geri dönün"
-            )
+            })
         )
 
     async def async_step_change_api_key(self, user_input=None):
@@ -431,8 +416,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required("new_api_key"): str,
             }),
-            errors=errors,
-            description=instructions
+            errors=errors
         )
 
     async def async_step_change_provider(self, user_input=None):
