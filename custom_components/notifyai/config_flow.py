@@ -29,12 +29,30 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
+        """Handle the initial step - provider selection."""
         errors = {}
         if user_input is not None:
-            provider = user_input.get(CONF_AI_PROVIDER, "gemini")
-            
-            if provider == "gemini":
+            # Store provider selection and move to API key step
+            self.provider = user_input.get(CONF_AI_PROVIDER, "gemini")
+            return await self.async_step_api_key()
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({
+                vol.Required(CONF_AI_PROVIDER, default="gemini"): vol.In(AI_PROVIDERS),
+            }),
+            errors=errors,
+            description_placeholders={
+                "info": "NotifyAI için yapay zeka sağlayıcısını seçin."
+            }
+        )
+    
+    async def async_step_api_key(self, user_input=None):
+        """Handle API key entry based on selected provider."""
+        errors = {}
+        
+        if user_input is not None:
+            if self.provider == "gemini":
                 api_key = user_input.get(CONF_API_KEY)
                 if not api_key:
                     errors["base"] = "invalid_api_key"
@@ -46,7 +64,7 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_API_KEY: api_key
                         }
                     )
-            elif provider == "groq":
+            elif self.provider == "groq":
                 groq_key = user_input.get(CONF_GROQ_API_KEY)
                 if not groq_key:
                     errors["base"] = "invalid_api_key"
@@ -58,18 +76,37 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_GROQ_API_KEY: groq_key
                         }
                     )
-
+        
+        # Show appropriate form based on provider
+        if self.provider == "gemini":
+            data_schema = vol.Schema({
+                vol.Required(CONF_API_KEY): str,
+            })
+            description = (
+                "Google Gemini API anahtarınızı girin.\n\n"
+                "📍 API Anahtarı Nereden Alınır?\n"
+                "Google AI Studio: https://aistudio.google.com/apikey\n\n"
+                "💰 Ücretsiz: 1500 istek/gün\n"
+                "⚡ Hız: Orta"
+            )
+        else:  # groq
+            data_schema = vol.Schema({
+                vol.Required(CONF_GROQ_API_KEY): str,
+            })
+            description = (
+                "Groq API anahtarınızı girin.\n\n"
+                "📍 API Anahtarı Nereden Alınır?\n"
+                "GroqCloud Console: https://console.groq.com/keys\n\n"
+                "💰 Ücretsiz: 14,400 istek/gün\n"
+                "⚡ Hız: Çok Hızlı (En hızlı seçenek!)"
+            )
+        
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_AI_PROVIDER, default="gemini"): vol.In(AI_PROVIDERS),
-                vol.Optional(CONF_API_KEY): str,
-                vol.Optional(CONF_GROQ_API_KEY): str,
-            }),
+            step_id="api_key",
+            data_schema=data_schema,
             errors=errors,
             description_placeholders={
-                "gemini_info": "Google Gemini API - 1500 istek/gün",
-                "groq_info": "Groq API - 14,400 istek/gün, çok hızlı"
+                "provider_info": description
             }
         )
 

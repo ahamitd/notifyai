@@ -2,28 +2,37 @@
     "config": {
         "step": {
             "user": {
-                "title": "NotifyAI Setup",
-                "description": "Enter your Google Gemini API key.",
+                "title": "NotifyAI Kurulumu",
+                "description": "{info}",
                 "data": {
-                    "api_key": "API Key"
+                    "ai_provider": "Yapay Zeka Sağlayıcısı"
+                }
+            },
+            "api_key": {
+                "title": "API Anahtarı",
+                "description": "{provider_info}",
+                "data": {
+                    "api_key": "Google Gemini API Anahtarı",
+                    "groq_api_key": "Groq API Anahtarı"
                 }
             }
         },
         "error": {
-            "cannot_connect": "Invalid API key or connection failed."
+            "invalid_api_key": "Geçersiz API anahtarı veya bağlantı hatası.",
+            "cannot_connect": "Bağlantı kurulamadı."
         }
     },
     "options": {
         "step": {
             "init": {
-                "title": "AI Notification Settings",
-                "description": "Configure AI model and notification devices.",
+                "title": "NotifyAI Ayarları",
+                "description": "Yapay zeka modelini ve bildirim cihazlarınızı yapılandırın.",
                 "data": {
-                    "model": "AI Model (e.g., gemini-flash-latest)",
-                    "notify_service_1": "Notification Device 1",
-                    "notify_service_2": "Notification Device 2",
-                    "notify_service_3": "Notification Device 3",
-                    "notify_service_4": "Notification Device 4"
+                    "model": "AI Modeli (örn: gemini-flash-latest)",
+                    "notify_service_1": "Bildirim Cihazı 1",
+                    "notify_service_2": "Bildirim Cihazı 2",
+                    "notify_service_3": "Bildirim Cihazı 3",
+                    "notify_service_4": "Bildirim Cihazı 4"
                 }
             }
         }
