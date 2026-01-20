@@ -125,7 +125,7 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
         daily_count = usage_data.get("daily_count", 0)
         
         # Get daily limit from model
-        model_name = self._entry.options.get(CONF_MODEL, "gemini-2.5-flash")
+        model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         daily_limit = self._get_model_daily_limit(model_name)
         
         remaining = max(0, daily_limit - daily_count)
@@ -135,7 +135,7 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional attributes."""
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
-        model_name = self._entry.options.get(CONF_MODEL, "gemini-2.5-flash")
+        model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         daily_limit = self._get_model_daily_limit(model_name)
         daily_count = usage_data.get("daily_count", 0)
         
@@ -186,13 +186,13 @@ class NotifyAIDailyLimitSensor(SensorEntity):
     @property
     def native_value(self):
         """Return daily limit for current model."""
-        model_name = self._entry.options.get(CONF_MODEL, "gemini-2.5-flash")
+        model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         return self._get_model_daily_limit(model_name)
     
     @property
     def extra_state_attributes(self):
         """Return additional attributes."""
-        model_name = self._entry.options.get(CONF_MODEL, "gemini-2.5-flash")
+        model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
         model_limits = self._hass.data.get(DOMAIN, {}).get("model_limits", {})
         
         # Get limits from API or fallback
