@@ -7,10 +7,13 @@ CONF_NOTIFY_SERVICE_3 = "notify_service_3"
 CONF_NOTIFY_SERVICE_4 = "notify_service_4"
 
 MODEL_OPTIONS = {
-    "gemini-2.0-flash-lite-preview-02-05": "Gemini 2.0 Flash-Lite (Hızlı, Ücretsiz: 15 RPM)",
-    "gemini-2.0-flash-exp": "Gemini 2.0 Flash (Deneysel, Ücretsiz: 10 RPM)",
-    "gemini-1.5-flash": "Gemini 1.5 Flash (Kararlı, Ücretsiz: 15 RPM)",
-    "gemini-1.5-pro": "Gemini 1.5 Pro (Güçlü, Ücretsiz: 2 RPM)",
+    "gemini-2.5-flash": "Gemini 2.5 Flash (15 RPM - Tahmini)",
+    "gemini-2.5-pro": "Gemini 2.5 Pro (2 RPM - Tahmini)",
+    "gemini-2.0-flash-exp": "Gemini 2.0 Flash Exp (10 RPM - Tahmini)",
+    "gemini-2.0-flash-lite-preview-02-05": "Gemini 2.0 Flash-Lite Preview (15 RPM - Tahmini)",
+    "gemini-1.5-flash": "Gemini 1.5 Flash (15 RPM - Tahmini)",
+    "gemini-1.5-pro": "Gemini 1.5 Pro (2 RPM - Tahmini)",
 }
 
-DEFAULT_MODEL = "gemini-2.0-flash-lite-preview-02-05"
+DEFAULT_MODEL = "gemini-2.5-flash"  # Highest RPM typically
+

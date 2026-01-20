@@ -46,24 +46,44 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return AiNotificationOptionsFlowHandler()
 
 async def fetch_models(api_key):
-    """Fetch available models from Google API."""
+    """Fetch available models from Google API with rate limits."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    # Filter and format models
                     models = {}
+                    model_limits = {}  # Store RPM limits for sorting
+                    
                     for m in data.get('models', []):
                         name = m['name'].replace('models/', '')
-                        if 'gemini' in name and 'vision' not in name: # Basic filtering
-                             friendly_name = m.get('displayName', name)
-                             models[name] = f"{friendly_name} ({name})"
-                    return models
+                        
+                        # Filter: only gemini models, exclude vision/embedding
+                        if 'gemini' not in name or 'vision' in name or 'embedding' in name:
+                            continue
+                        
+                        # Get rate limits
+                        rate_limits = m.get('rateLimits', {})
+                        rpm = rate_limits.get('requestsPerMinute', 0)
+                        
+                        # Store RPM for sorting
+                        model_limits[name] = rpm
+                        
+                        # Format display name with RPM
+                        friendly_name = m.get('displayName', name)
+                        if rpm > 0:
+                            models[name] = f"{friendly_name} ({rpm} RPM)"
+                        else:
+                            models[name] = f"{friendly_name}"
+                    
+                    # Return models dict and best model (highest RPM)
+                    best_model = max(model_limits, key=model_limits.get) if model_limits else None
+                    return models, best_model
+                    
     except Exception as e:
         _LOGGER.error("Error fetching models: %s", e)
-    return None
+    return None, None
 
 async def validate_model(api_key, model_name):
     """Try a tiny generateContent call to check quota/availability."""
@@ -94,7 +114,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         
         # We need to maintain the list of available models across steps if validation fails
         if "model_options" not in self.hass.data.get(DOMAIN, {}):
-             dynamic_models = await fetch_models(api_key)
+             dynamic_models, _ = await fetch_models(api_key)
              model_options = dynamic_models if dynamic_models else MODEL_OPTIONS
         else:
              model_options = MODEL_OPTIONS # Fallback
@@ -113,26 +133,34 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
                 else:
                     errors[CONF_MODEL] = "invalid_model"
 
-        current_model = self.config_entry.options.get(CONF_MODEL, DEFAULT_MODEL)
+        current_model = self.config_entry.options.get(CONF_MODEL)
         
-        # 1. Fetch models dynamically (if not already done or just use local list)
-        dynamic_models = await fetch_models(api_key)
+        # 1. Fetch models dynamically
+        dynamic_models, best_model = await fetch_models(api_key)
         
-        # 2. Use dynamic list ONLY if available (no merging myths)
+        # 2. Use dynamic list ONLY if available
         if dynamic_models:
             model_options = dynamic_models
-            # Ensure current selection is valid or default to most stable
+            
+            # If no model selected yet, use the best model from API
+            if not current_model and best_model:
+                current_model = best_model
+            elif not current_model:
+                current_model = DEFAULT_MODEL
+            
+            # Ensure current model is in available options
             if current_model not in model_options:
-                preferred_defaults = ["gemini-2.0-flash-lite-preview-02-05", "gemini-2.0-flash-exp", "gemini-pro-latest", "gemini-flash-latest"]
-                for pref in preferred_defaults:
-                    if pref in model_options:
-                        current_model = pref
-                        break
+                # Try best model first
+                if best_model and best_model in model_options:
+                    current_model = best_model
                 else:
-                    current_model = list(model_options.keys())[0]
+                    # Fallback to first available
+                    current_model = list(model_options.keys())[0] if model_options else DEFAULT_MODEL
         else:
             model_options = MODEL_OPTIONS
-            if current_model not in model_options:
+            if not current_model:
+                current_model = DEFAULT_MODEL
+            elif current_model not in model_options:
                  current_model = DEFAULT_MODEL
 
         return self.async_show_form(
