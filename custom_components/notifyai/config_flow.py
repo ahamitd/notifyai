@@ -83,10 +83,10 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_API_KEY): str,
             })
             description = (
-                "Google Gemini API anahtarınızı girin.\n\n"
-                "📍 API Anahtarı Nereden Alınır?\n"
-                "Google AI Studio: https://aistudio.google.com/apikey\n\n"
-                "💰 Ücretsiz: 1500 istek/gün\n"
+                "Google Gemini API anahtarınızı girin.\\n\\n"
+                "📍 API Anahtarı Nereden Alınır?\\n"
+                "Google AI Studio: https://aistudio.google.com/apikey\\n\\n"
+                "💰 Ücretsiz: 1500 istek/gün\\n"
                 "⚡ Hız: Orta"
             )
         else:  # groq
@@ -94,10 +94,10 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_GROQ_API_KEY): str,
             })
             description = (
-                "Groq API anahtarınızı girin.\n\n"
-                "📍 API Anahtarı Nereden Alınır?\n"
-                "GroqCloud Console: https://console.groq.com/keys\n\n"
-                "💰 Ücretsiz: 14,400 istek/gün\n"
+                "Groq API anahtarınızı girin.\\n\\n"
+                "📍 API Anahtarı Nereden Alınır?\\n"
+                "GroqCloud Console: https://console.groq.com/keys\\n\\n"
+                "💰 Ücretsiz: 14,400 istek/gün\\n"
                 "⚡ Hız: Çok Hızlı (En hızlı seçenek!)"
             )
         
@@ -113,7 +113,7 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return AiNotificationOptionsFlowHandler()
+        return AiNotificationOptionsFlowHandler(config_entry)
 
 async def fetch_models(api_key):
     """Fetch available models from Google API with rate limits."""
@@ -204,8 +204,18 @@ async def validate_groq_model(api_key, model_name):
 class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options."""
 
+    def __init__(self, config_entry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    def _mask_api_key(self, api_key: str) -> str:
+        """Mask API key for display (show first 3 and last 3 characters)."""
+        if not api_key or len(api_key) < 8:
+            return "***"
+        return f"{api_key[:3]}...{api_key[-3:]}"
+
     async def async_step_init(self, user_input=None):
-        """Manage the options."""
+        """Manage the main options - Model and Notification Services."""
         errors = {}
         provider = self.config_entry.data.get(CONF_AI_PROVIDER, "gemini")
         
@@ -214,6 +224,10 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             api_key = self.config_entry.data.get(CONF_API_KEY)
         else:  # groq
             api_key = self.config_entry.data.get(CONF_GROQ_API_KEY)
+        
+        # Handle navigation to advanced settings
+        if user_input is not None and user_input.get("advanced_settings"):
+            return await self.async_step_advanced()
         
         # We need to maintain the list of available models across steps if validation fails
         if "model_options" not in self.hass.data.get(DOMAIN, {}):
@@ -225,7 +239,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         else:
             model_options = GROQ_MODELS if provider == "groq" else MODEL_OPTIONS
 
-        if user_input is not None:
+        if user_input is not None and not user_input.get("advanced_settings"):
             # VALIDATION STEP
             model_name = user_input.get(CONF_MODEL)
             
@@ -296,6 +310,9 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             elif current_model not in model_options:
                 current_model = DEFAULT_GROQ_MODEL
 
+        # Get provider display name
+        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
+        masked_key = self._mask_api_key(api_key)
 
         return self.async_show_form(
             step_id="init",
@@ -305,6 +322,183 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_NOTIFY_SERVICE_2, default=self.config_entry.options.get(CONF_NOTIFY_SERVICE_2, "")): str,
                 vol.Optional(CONF_NOTIFY_SERVICE_3, default=self.config_entry.options.get(CONF_NOTIFY_SERVICE_3, "")): str,
                 vol.Optional(CONF_NOTIFY_SERVICE_4, default=self.config_entry.options.get(CONF_NOTIFY_SERVICE_4, "")): str,
+                vol.Optional("advanced_settings", default=False): bool,
             }),
-            errors=errors
+            errors=errors,
+            description_placeholders={
+                "current_provider": f"🤖 Sağlayıcı: {provider_display}",
+                "current_api_key": f"🔑 API: {masked_key}",
+                "info": "Gelişmiş ayarlar için 'Advanced Settings' kutusunu işaretleyin."
+            }
+        )
+
+    async def async_step_advanced(self, user_input=None):
+        """Handle advanced settings - API key and provider management."""
+        provider = self.config_entry.data.get(CONF_AI_PROVIDER, "gemini")
+        
+        # Get appropriate API key
+        if provider == "gemini":
+            api_key = self.config_entry.data.get(CONF_API_KEY)
+        else:  # groq
+            api_key = self.config_entry.data.get(CONF_GROQ_API_KEY)
+        
+        masked_key = self._mask_api_key(api_key)
+        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
+        
+        if user_input is not None:
+            action = user_input.get("action")
+            
+            if action == "change_api_key":
+                return await self.async_step_change_api_key()
+            elif action == "change_provider":
+                return await self.async_step_change_provider()
+            elif action == "back":
+                return await self.async_step_init()
+        
+        return self.async_show_form(
+            step_id="advanced",
+            data_schema=vol.Schema({
+                vol.Required("action", default="back"): vol.In({
+                    "change_api_key": "🔑 API Anahtarını Değiştir",
+                    "change_provider": "🔄 Sağlayıcıyı Değiştir",
+                    "back": "⬅️ Ana Ayarlara Dön"
+                }),
+            }),
+            description_placeholders={
+                "current_provider": f"🤖 Mevcut Sağlayıcı: {provider_display}",
+                "current_api_key": f"🔑 Mevcut API: {masked_key}",
+                "info": "API anahtarınızı veya sağlayıcınızı değiştirebilirsiniz."
+            }
+        )
+
+    async def async_step_change_api_key(self, user_input=None):
+        """Handle API key change."""
+        errors = {}
+        provider = self.config_entry.data.get(CONF_AI_PROVIDER, "gemini")
+        
+        if user_input is not None:
+            new_api_key = user_input.get("new_api_key")
+            
+            if not new_api_key or len(new_api_key) < 10:
+                errors["new_api_key"] = "invalid_api_key"
+            else:
+                # Validate the new API key
+                if provider == "gemini":
+                    # Try to fetch models with new key
+                    models, _, _ = await fetch_models(new_api_key)
+                    if models:
+                        # Update config entry data
+                        new_data = dict(self.config_entry.data)
+                        new_data[CONF_API_KEY] = new_api_key
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
+                        # Reload the integration
+                        await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                        return self.async_create_entry(title="", data={})
+                    else:
+                        errors["new_api_key"] = "invalid_api_key"
+                else:  # groq
+                    # Validate with a test model
+                    success, error_msg = await validate_groq_model(new_api_key, DEFAULT_GROQ_MODEL)
+                    if success:
+                        # Update config entry data
+                        new_data = dict(self.config_entry.data)
+                        new_data[CONF_GROQ_API_KEY] = new_api_key
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
+                        # Reload the integration
+                        await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                        return self.async_create_entry(title="", data={})
+                    else:
+                        errors["new_api_key"] = "invalid_api_key"
+        
+        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
+        api_url = "https://aistudio.google.com/apikey" if provider == "gemini" else "https://console.groq.com/keys"
+        
+        return self.async_show_form(
+            step_id="change_api_key",
+            data_schema=vol.Schema({
+                vol.Required("new_api_key"): str,
+            }),
+            errors=errors,
+            description_placeholders={
+                "provider": provider_display,
+                "api_url": api_url,
+                "info": f"Yeni {provider_display} API anahtarınızı girin.\\n\\n📍 API Anahtarı: {api_url}"
+            }
+        )
+
+    async def async_step_change_provider(self, user_input=None):
+        """Handle provider change."""
+        errors = {}
+        current_provider = self.config_entry.data.get(CONF_AI_PROVIDER, "gemini")
+        
+        if user_input is not None:
+            new_provider = user_input.get(CONF_AI_PROVIDER)
+            
+            # Get the appropriate API key field
+            if new_provider == "gemini":
+                new_api_key = user_input.get(CONF_API_KEY)
+                if not new_api_key:
+                    errors[CONF_API_KEY] = "invalid_api_key"
+                else:
+                    # Validate Gemini key
+                    models, _, _ = await fetch_models(new_api_key)
+                    if models:
+                        # Update config entry
+                        new_data = {
+                            CONF_AI_PROVIDER: "gemini",
+                            CONF_API_KEY: new_api_key
+                        }
+                        
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
+                        
+                        # Reset model to default and reload
+                        await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                        return self.async_create_entry(title="", data={CONF_MODEL: DEFAULT_MODEL})
+                    else:
+                        errors[CONF_API_KEY] = "invalid_api_key"
+            else:  # groq
+                new_api_key = user_input.get(CONF_GROQ_API_KEY)
+                if not new_api_key:
+                    errors[CONF_GROQ_API_KEY] = "invalid_api_key"
+                else:
+                    # Validate Groq key
+                    success, _ = await validate_groq_model(new_api_key, DEFAULT_GROQ_MODEL)
+                    if success:
+                        # Update config entry
+                        new_data = {
+                            CONF_AI_PROVIDER: "groq",
+                            CONF_GROQ_API_KEY: new_api_key
+                        }
+                        
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
+                        
+                        # Reset model to default and reload
+                        await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                        return self.async_create_entry(title="", data={CONF_MODEL: DEFAULT_GROQ_MODEL})
+                    else:
+                        errors[CONF_GROQ_API_KEY] = "invalid_api_key"
+        
+        # Determine which provider to suggest (opposite of current)
+        suggested_provider = "groq" if current_provider == "gemini" else "gemini"
+        
+        return self.async_show_form(
+            step_id="change_provider",
+            data_schema=vol.Schema({
+                vol.Required(CONF_AI_PROVIDER, default=suggested_provider): vol.In(AI_PROVIDERS),
+                vol.Optional(CONF_API_KEY): str,
+                vol.Optional(CONF_GROQ_API_KEY): str,
+            }),
+            errors=errors,
+            description_placeholders={
+                "current_provider": f"Mevcut: {current_provider}",
+                "info": "⚠️ Yeni sağlayıcıyı seçin ve ilgili API anahtarını girin.\\n\\nModel otomatik olarak varsayılana sıfırlanacak.\\n\\n📍 Gemini: https://aistudio.google.com/apikey\\n📍 Groq: https://console.groq.com/keys"
+            }
         )

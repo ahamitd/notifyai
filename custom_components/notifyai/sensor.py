@@ -75,8 +75,14 @@ class NotifyAIUsageSensor(SensorEntity):
         """Return additional state attributes."""
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
         current_model = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "Bilinmiyor")
+        provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
+        
+        # Get provider display name
+        provider_name = "Google Gemini" if provider == "gemini" else "Groq"
         
         attributes = {
+            "ai_provider": provider,
+            "provider_name": provider_name,
             "current_model": current_model,
             "last_call_time": usage_data.get("last_call_time", "Henüz çağrı yapılmadı"),
             "last_call_status": usage_data.get("last_call_status", "Bilinmiyor"),
@@ -137,10 +143,16 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
         """Return additional attributes."""
         usage_data = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get("usage_data", {})
         model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
+        provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
         daily_limit = self._get_model_daily_limit(model_name)
         daily_count = usage_data.get("daily_count", 0)
         
+        # Get provider display name
+        provider_name = "Google Gemini" if provider == "gemini" else "Groq"
+        
         return {
+            "ai_provider": provider,
+            "provider_name": provider_name,
             "model": model_name,
             "daily_limit": daily_limit,
             "used": daily_count,
@@ -148,13 +160,19 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
     
     def _get_model_daily_limit(self, model_name):
         """Get daily limit for the model."""
-        # Try to get from API-fetched limits
-        model_limits = self._hass.data.get(DOMAIN, {}).get("model_limits", {})
-        if model_name in model_limits:
-            return model_limits[model_name].get('rpd', 1500)
+        provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
         
-        # Fallback to hardcoded limits
-        return MODEL_LIMITS_FALLBACK.get(model_name, {}).get('rpd', 1500)
+        if provider == "groq":
+            # All Groq models have 14,400/day
+            return GROQ_MODEL_LIMITS.get(model_name, {}).get('rpd', 14400)
+        else:
+            # Gemini models - try to get from API-fetched limits
+            model_limits = self._hass.data.get(DOMAIN, {}).get("model_limits", {})
+            if model_name in model_limits:
+                return model_limits[model_name].get('rpd', 1500)
+            
+            # Fallback to hardcoded limits
+            return MODEL_LIMITS_FALLBACK.get(model_name, {}).get('rpd', 1500)
     
     async def async_update(self):
         """Update the sensor."""
@@ -194,18 +212,30 @@ class NotifyAIDailyLimitSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional attributes."""
         model_name = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_MODEL, "gemini-2.5-flash")
+        provider = self._hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(CONF_AI_PROVIDER, "gemini")
         model_limits = self._hass.data.get(DOMAIN, {}).get("model_limits", {})
         
-        # Get limits from API or fallback
-        if model_name in model_limits:
-            rpm = model_limits[model_name].get('rpm', 15)
-            rpd = model_limits[model_name].get('rpd', 1500)
-        else:
-            limits = MODEL_LIMITS_FALLBACK.get(model_name, {"rpm": 15, "rpd": 1500})
+        # Get provider display name
+        provider_name = "Google Gemini" if provider == "gemini" else "Groq"
+        
+        # Get limits based on provider
+        if provider == "groq":
+            limits = GROQ_MODEL_LIMITS.get(model_name, {"rpm": 8000, "rpd": 14400})
             rpm = limits['rpm']
             rpd = limits['rpd']
+        else:
+            # Get limits from API or fallback for Gemini
+            if model_name in model_limits:
+                rpm = model_limits[model_name].get('rpm', 15)
+                rpd = model_limits[model_name].get('rpd', 1500)
+            else:
+                limits = MODEL_LIMITS_FALLBACK.get(model_name, {"rpm": 15, "rpd": 1500})
+                rpm = limits['rpm']
+                rpd = limits['rpd']
         
         return {
+            "ai_provider": provider,
+            "provider_name": provider_name,
             "model": model_name,
             "rpm": rpm,
             "rpd": rpd,
