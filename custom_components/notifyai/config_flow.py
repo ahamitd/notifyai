@@ -209,6 +209,10 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         else:  # groq
             api_key = self.config_entry.data.get(CONF_GROQ_API_KEY)
         
+        # Get masked key and provider display name for UI
+        masked_key = self._mask_api_key(api_key)
+        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
+        
         # Handle navigation to advanced settings
         if user_input is not None and user_input.get("advanced_settings"):
             return await self.async_step_advanced()
