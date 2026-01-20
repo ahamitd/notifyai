@@ -35,6 +35,7 @@ class NotifyAIUsageSensor(SensorEntity):
         self._attr_icon = "mdi:api"
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         self._attr_native_unit_of_measurement = "çağrı"
+        self._attr_should_poll = True  # Enable polling for updates
 
     @property
     def device_info(self):
@@ -105,6 +106,7 @@ class NotifyAIRemainingRequestsSensor(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_remaining_requests"
         self._attr_icon = "mdi:counter"
         self._attr_native_unit_of_measurement = "sorgu"
+        self._attr_should_poll = True  # Enable polling for updates
     
     @property
     def device_info(self):
@@ -169,6 +171,7 @@ class NotifyAIDailyLimitSensor(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_daily_limit"
         self._attr_icon = "mdi:gauge"
         self._attr_native_unit_of_measurement = "sorgu"
+        self._attr_should_poll = True  # Enable polling for updates
     
     @property
     def device_info(self):
