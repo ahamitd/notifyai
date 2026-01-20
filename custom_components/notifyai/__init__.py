@@ -35,13 +35,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
     hass.data[DOMAIN][entry.entry_id] = {
         CONF_API_KEY: api_key,
-        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-flash-latest")
+        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-flash-latest"),
+        "usage_data": {
+            "daily_count": 0,
+            "last_call_time": None,
+            "last_call_status": None,
+            "last_reset": None,
+            "last_error": None
+        }
     }
 
     # Debug: List available models to help user find correct one
     hass.async_create_task(log_available_models(hass, api_key))
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
+    
+    # Set up sensor platform
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     async def generate_notification(call: ServiceCall) -> ServiceResponse:
         """Handle the service call."""
@@ -91,7 +101,7 @@ Mode: {mode}"""
 
         try:
             response_text = await call_gemini_api(
-                hass, api_key, model_name, system_prompt, user_message_text, image_data
+                hass, api_key, model_name, system_prompt, user_message_text, image_data, entry.entry_id
             )
             
             # Use custom title if provided, otherwise parse AI response
@@ -264,8 +274,10 @@ Mode: {mode}"""
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    hass.data[DOMAIN].pop(entry.entry_id)
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+    return unload_ok
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update listener."""
@@ -297,9 +309,11 @@ async def call_gemini_api(
     model_name: str, 
     system_prompt: str, 
     user_text: str,
-    image_base64: str = None
+    image_base64: str = None,
+    entry_id: str = None
 ) -> str:
     """Call Google Gemini API directly via REST."""
+    from homeassistant.util import dt as dt_util
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     session = async_get_clientsession(hass)
@@ -328,12 +342,32 @@ async def call_gemini_api(
         }
     }
     
+    # Track usage if entry_id is provided
+    if entry_id and entry_id in hass.data.get(DOMAIN, {}):
+        usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
+        
     async with session.post(url, json=payload) as response:
         if response.status != 200:
             error_text = await response.text()
+            
+            # Update usage tracking with error
+            if entry_id and entry_id in hass.data.get(DOMAIN, {}):
+                usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
+                usage_data["last_call_time"] = dt_util.now().isoformat()
+                usage_data["last_call_status"] = f"Hata ({response.status})"
+                usage_data["last_error"] = error_text[:200]  # Limit error message length
+            
             raise Exception(f"Gemini API error ({response.status}): {error_text}")
         
         data = await response.json()
+        
+        # Update usage tracking with success
+        if entry_id and entry_id in hass.data.get(DOMAIN, {}):
+            usage_data = hass.data[DOMAIN][entry_id].get("usage_data", {})
+            usage_data["daily_count"] = usage_data.get("daily_count", 0) + 1
+            usage_data["last_call_time"] = dt_util.now().isoformat()
+            usage_data["last_call_status"] = "Başarılı"
+            usage_data["last_error"] = None
         
         # Extract text from response
         try:

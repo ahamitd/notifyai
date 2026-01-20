@@ -37,6 +37,33 @@
             }
         }
     },
+    "entity": {
+        "sensor": {
+            "notifyai_api_usage": {
+                "name": "API Kullanımı",
+                "state_attributes": {
+                    "current_model": {
+                        "name": "Aktif Model"
+                    },
+                    "last_call_time": {
+                        "name": "Son Çağrı Zamanı"
+                    },
+                    "last_call_status": {
+                        "name": "Son Çağrı Durumu"
+                    },
+                    "daily_count": {
+                        "name": "Günlük Çağrı Sayısı"
+                    },
+                    "last_reset": {
+                        "name": "Son Sıfırlama"
+                    },
+                    "last_error": {
+                        "name": "Son Hata"
+                    }
+                }
+            }
+        }
+    },
     "services": {
         "generate": {
             "name": "Bildirim Oluştur",
