@@ -38,6 +38,8 @@ generate:
               value: "smart"
             - label: "Resmi (Ciddi ve profesyonel)"
               value: "formal"
+            - label: "Sert (Direkt ve küfürlü)"
+              value: "sert"
             - label: "Karışık (Rastgele seçim)"
               value: "mixed"
     persona:
