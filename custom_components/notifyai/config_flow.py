@@ -267,9 +267,6 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_NOTIFY_SERVICE_4: user_input.get(CONF_NOTIFY_SERVICE_4, ""),
                 }
                 
-                # Debug: Log what we're saving
-                _LOGGER.warning("NotifyAI - Saving options: %s", save_data)
-                
                 return self.async_create_entry(title="", data=save_data)
 
         current_model = self._config_entry.options.get(CONF_MODEL)
@@ -327,15 +324,30 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         # Get provider display name
         provider_display = "Google Gemini" if provider == "gemini" else "Groq"
         masked_key = self._mask_api_key(api_key)
+        
+        # Use user_input values if available (e.g., when validation failed),
+        # otherwise use saved options
+        if user_input and errors:
+            # Validation failed, show user's input back to them
+            notify_1 = user_input.get(CONF_NOTIFY_SERVICE_1, "")
+            notify_2 = user_input.get(CONF_NOTIFY_SERVICE_2, "")
+            notify_3 = user_input.get(CONF_NOTIFY_SERVICE_3, "")
+            notify_4 = user_input.get(CONF_NOTIFY_SERVICE_4, "")
+        else:
+            # No errors or first load, use saved options
+            notify_1 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_1, "")
+            notify_2 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_2, "")
+            notify_3 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_3, "")
+            notify_4 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_4, "")
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
                 vol.Optional(CONF_MODEL, default=current_model): vol.In(model_options),
-                vol.Optional(CONF_NOTIFY_SERVICE_1, default=self._config_entry.options.get(CONF_NOTIFY_SERVICE_1, "")): str,
-                vol.Optional(CONF_NOTIFY_SERVICE_2, default=self._config_entry.options.get(CONF_NOTIFY_SERVICE_2, "")): str,
-                vol.Optional(CONF_NOTIFY_SERVICE_3, default=self._config_entry.options.get(CONF_NOTIFY_SERVICE_3, "")): str,
-                vol.Optional(CONF_NOTIFY_SERVICE_4, default=self._config_entry.options.get(CONF_NOTIFY_SERVICE_4, "")): str,
+                vol.Optional(CONF_NOTIFY_SERVICE_1, default=notify_1): str,
+                vol.Optional(CONF_NOTIFY_SERVICE_2, default=notify_2): str,
+                vol.Optional(CONF_NOTIFY_SERVICE_3, default=notify_3): str,
+                vol.Optional(CONF_NOTIFY_SERVICE_4, default=notify_4): str,
                 vol.Optional("advanced_settings", default=False): bool,
             }),
             errors=errors
