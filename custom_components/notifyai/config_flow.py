@@ -200,7 +200,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     
     def _get_notify_services(self) -> dict:
         """Get all available notify services in Home Assistant."""
-        notify_services = {"": "Yok"}  # First option is "None"
+        notify_services = {"none": "Yok"}  # Use "none" as sentinel value instead of ""
         
         # Get all services in the notify domain
         if self.hass and hasattr(self.hass, 'services'):
@@ -217,6 +217,13 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the main options - Model and Notification Services."""
         errors = {}
+        
+        # Get the very latest config entry from hass to avoid stale data
+        # especially important for options that were just modified
+        entry = self.hass.config_entries.async_get_entry(self._config_entry.entry_id)
+        if entry:
+            self._config_entry = entry
+
         provider = self._config_entry.data.get(CONF_AI_PROVIDER, "gemini")
         
         # Get appropriate API key
@@ -252,7 +259,14 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             # Check if notification services have changed
             notify_changed = False
             for key in [CONF_NOTIFY_SERVICE_1, CONF_NOTIFY_SERVICE_2, CONF_NOTIFY_SERVICE_3, CONF_NOTIFY_SERVICE_4]:
-                if self._config_entry.options.get(key, "") != user_input.get(key, ""):
+                current_val = self._config_entry.options.get(key, "")
+                new_val = user_input.get(key, "")
+                
+                # Normalize "none" to "" for comparison
+                if new_val == "none":
+                    new_val = ""
+                    
+                if current_val != new_val:
                     notify_changed = True
                     break
             
@@ -274,13 +288,17 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             # Save changes if no errors (either validation passed or no validation needed)
             if not errors:
                 # Ensure all notification service fields are explicitly included
-                # This prevents old values from persisting when fields are cleared
+                # Map "none" sentinel value back to empty string for actual saving
+                
+                def _wrap_none(val):
+                    return "" if val == "none" else val
+
                 save_data = {
                     CONF_MODEL: user_input.get(CONF_MODEL),
-                    CONF_NOTIFY_SERVICE_1: user_input.get(CONF_NOTIFY_SERVICE_1, ""),
-                    CONF_NOTIFY_SERVICE_2: user_input.get(CONF_NOTIFY_SERVICE_2, ""),
-                    CONF_NOTIFY_SERVICE_3: user_input.get(CONF_NOTIFY_SERVICE_3, ""),
-                    CONF_NOTIFY_SERVICE_4: user_input.get(CONF_NOTIFY_SERVICE_4, ""),
+                    CONF_NOTIFY_SERVICE_1: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_1, "")),
+                    CONF_NOTIFY_SERVICE_2: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_2, "")),
+                    CONF_NOTIFY_SERVICE_3: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_3, "")),
+                    CONF_NOTIFY_SERVICE_4: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_4, "")),
                 }
                 
                 return self.async_create_entry(title="", data=save_data)
@@ -348,20 +366,24 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         # otherwise use saved options
         if user_input and errors:
             # Validation failed, show user's input back to them
-            notify_1 = user_input.get(CONF_NOTIFY_SERVICE_1, "")
-            notify_2 = user_input.get(CONF_NOTIFY_SERVICE_2, "")
-            notify_3 = user_input.get(CONF_NOTIFY_SERVICE_3, "")
-            notify_4 = user_input.get(CONF_NOTIFY_SERVICE_4, "")
+            notify_1 = user_input.get(CONF_NOTIFY_SERVICE_1, "none")
+            notify_2 = user_input.get(CONF_NOTIFY_SERVICE_2, "none")
+            notify_3 = user_input.get(CONF_NOTIFY_SERVICE_3, "none")
+            notify_4 = user_input.get(CONF_NOTIFY_SERVICE_4, "none")
         else:
             # No errors or first load, use saved options
-            notify_1 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_1, "")
-            notify_2 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_2, "")
-            notify_3 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_3, "")
-            notify_4 = self._config_entry.options.get(CONF_NOTIFY_SERVICE_4, "")
+            # Map "" to "none" for the dropdown
+            def _map_empty(val):
+                return "none" if not val else val
+
+            notify_1 = _map_empty(self._config_entry.options.get(CONF_NOTIFY_SERVICE_1, ""))
+            notify_2 = _map_empty(self._config_entry.options.get(CONF_NOTIFY_SERVICE_2, ""))
+            notify_3 = _map_empty(self._config_entry.options.get(CONF_NOTIFY_SERVICE_3, ""))
+            notify_4 = _map_empty(self._config_entry.options.get(CONF_NOTIFY_SERVICE_4, ""))
 
         # Ensure selected services are in the list (if they were manually entered before)
         for srv in [notify_1, notify_2, notify_3, notify_4]:
-            if srv and srv not in notify_services:
+            if srv and srv != "none" and srv not in notify_services:
                 notify_services[srv] = srv
 
         return self.async_show_form(
