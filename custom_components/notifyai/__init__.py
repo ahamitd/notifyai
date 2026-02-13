@@ -180,7 +180,7 @@ Mode: {mode}"""
             else:
                 for key in [CONF_NOTIFY_SERVICE_1, CONF_NOTIFY_SERVICE_2, CONF_NOTIFY_SERVICE_3, CONF_NOTIFY_SERVICE_4]:
                     srv = entry.options.get(key)
-                    if srv and srv.strip():
+                    if srv and srv.strip() and srv != "none":
                         targets.append(srv.strip())
             
             # Send to all targets

@@ -287,18 +287,14 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             
             # Save changes if no errors (either validation passed or no validation needed)
             if not errors:
-                # Ensure all notification service fields are explicitly included
-                # Map "none" sentinel value back to empty string for actual saving
-                
-                def _wrap_none(val):
-                    return "" if val == "none" else val
-
+                # Save notify service values literally. "none" is saved as "none"
+                # to ensure HA detects the change and doesn't restore old values.
                 save_data = {
                     CONF_MODEL: user_input.get(CONF_MODEL),
-                    CONF_NOTIFY_SERVICE_1: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_1, "")),
-                    CONF_NOTIFY_SERVICE_2: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_2, "")),
-                    CONF_NOTIFY_SERVICE_3: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_3, "")),
-                    CONF_NOTIFY_SERVICE_4: _wrap_none(user_input.get(CONF_NOTIFY_SERVICE_4, "")),
+                    CONF_NOTIFY_SERVICE_1: user_input.get(CONF_NOTIFY_SERVICE_1, ""),
+                    CONF_NOTIFY_SERVICE_2: user_input.get(CONF_NOTIFY_SERVICE_2, ""),
+                    CONF_NOTIFY_SERVICE_3: user_input.get(CONF_NOTIFY_SERVICE_3, ""),
+                    CONF_NOTIFY_SERVICE_4: user_input.get(CONF_NOTIFY_SERVICE_4, ""),
                 }
                 
                 return self.async_create_entry(title="", data=save_data)
