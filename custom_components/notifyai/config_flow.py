@@ -228,23 +228,36 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
             model_options = GROQ_MODELS if provider == "groq" else MODEL_OPTIONS
 
         if user_input is not None and not user_input.get("advanced_settings"):
-            # VALIDATION STEP
-            model_name = user_input.get(CONF_MODEL)
+            # Check if model has changed
+            current_model = self._config_entry.options.get(CONF_MODEL)
+            new_model = user_input.get(CONF_MODEL)
+            model_changed = current_model != new_model
             
-            # Call appropriate validation based on provider
-            if provider == "groq":
-                success, error_msg = await validate_groq_model(api_key, model_name)
-            else:  # gemini
-                success, error_msg = await validate_model(api_key, model_name)
+            # Check if notification services have changed
+            notify_changed = False
+            for key in [CONF_NOTIFY_SERVICE_1, CONF_NOTIFY_SERVICE_2, CONF_NOTIFY_SERVICE_3, CONF_NOTIFY_SERVICE_4]:
+                if self._config_entry.options.get(key, "") != user_input.get(key, ""):
+                    notify_changed = True
+                    break
             
-            if success:
+            # Only validate if model has changed
+            if model_changed:
+                # Call appropriate validation based on provider
+                if provider == "groq":
+                    success, error_msg = await validate_groq_model(api_key, new_model)
+                else:  # gemini
+                    success, error_msg = await validate_model(api_key, new_model)
+                
+                if not success:
+                    _LOGGER.error("Model validation failed: %s", error_msg)
+                    if "quota" in error_msg.lower() or "429" in error_msg:
+                        errors[CONF_MODEL] = "quota_exceeded"
+                    else:
+                        errors[CONF_MODEL] = "invalid_model"
+            
+            # Save changes if no errors (either validation passed or no validation needed)
+            if not errors:
                 return self.async_create_entry(title="", data=user_input)
-            else:
-                _LOGGER.error("Model validation failed: %s", error_msg)
-                if "quota" in error_msg.lower() or "429" in error_msg:
-                    errors[CONF_MODEL] = "quota_exceeded"
-                else:
-                    errors[CONF_MODEL] = "invalid_model"
 
         current_model = self._config_entry.options.get(CONF_MODEL)
         
