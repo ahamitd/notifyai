@@ -97,7 +97,8 @@ class AiNotificationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return AiNotificationOptionsFlowHandler(config_entry)
+        """Get the options flow for this handler."""
+        return AiNotificationOptionsFlowHandler()
 
 async def fetch_models(api_key):
     """Fetch available models from Google API with rate limits."""
@@ -227,10 +228,7 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
         else:  # groq
             api_key = current_entry.data.get(CONF_GROQ_API_KEY)
         
-        # Get masked key and provider display name for UI
-        masked_key = self._mask_api_key(api_key)
-        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
-        
+
         # Handle navigation to advanced settings
         if user_input is not None and user_input.get("advanced_settings"):
             return await self.async_step_advanced()
@@ -393,16 +391,6 @@ class AiNotificationOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_advanced(self, user_input=None):
         """Handle advanced settings - API key and provider management."""
         provider = self.config_entry.data.get(CONF_AI_PROVIDER, "gemini")
-        
-        # Get appropriate API key
-        if provider == "gemini":
-            api_key = self.config_entry.data.get(CONF_API_KEY)
-        else:  # groq
-            api_key = self.config_entry.data.get(CONF_GROQ_API_KEY)
-        
-        masked_key = self._mask_api_key(api_key)
-        provider_display = "Google Gemini" if provider == "gemini" else "Groq"
-        
         if user_input is not None:
             action = user_input.get("action")
             
