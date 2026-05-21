@@ -7,7 +7,6 @@ import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
-from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.exceptions import HomeAssistantError
 
@@ -44,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         CONF_AI_PROVIDER: provider,
         CONF_API_KEY: api_key,  # Store for backward compatibility
-        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-flash-latest" if provider == "gemini" else "llama-3.3-70b-versatile"),
+        CONF_MODEL: entry.options.get(CONF_MODEL, "gemini-2.5-flash" if provider == "gemini" else "llama-3.3-70b-versatile"),
         "usage_data": {
             "daily_count": 0,
             "last_call_time": None,
@@ -128,32 +127,40 @@ Mode: {mode}"""
                 )
 
             
-            # Parse AI response first
+            # Parse AI response
             parsed_title = None
             parsed_body = None
-            
+
+            # Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+            clean_response = response_text.strip()
+            clean_response = re.sub(r'^```(?:json)?\s*', '', clean_response)
+            clean_response = re.sub(r'\s*```$', '', clean_response).strip()
+
             try:
-                # 1. Try strict JSON
-                ai_response = json.loads(response_text)
+                # 1. Try strict JSON on cleaned response
+                ai_response = json.loads(clean_response)
                 parsed_title = ai_response.get("title", "AI Bildirim")
                 parsed_body = ai_response.get("body", "")
-            except:
-                # 2. Try to find JSON block
-                match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            except Exception:
+                # 2. Try to find a JSON object anywhere in the text
+                match = re.search(r'\{[^{}]*\}', clean_response, re.DOTALL)
+                if not match:
+                    # Also try nested
+                    match = re.search(r'\{.*\}', clean_response, re.DOTALL)
                 if match:
                     try:
                         ai_response = json.loads(match.group())
                         parsed_title = ai_response.get("title", "AI Bildirim")
                         parsed_body = ai_response.get("body", "")
-                    except:
+                    except Exception:
                         pass
-                
+
                 if not parsed_title or not parsed_body:
                     # 3. Fallback: Parse "Title: ... Body: ..." format
                     parsed_title = "Bildirim"
-                    parsed_body = response_text
-                    
-                    for line in response_text.split('\n'):
+                    parsed_body = clean_response
+
+                    for line in clean_response.split('\n'):
                         clean_line = line.strip()
                         if clean_line.lower().startswith('title:'):
                             parsed_title = clean_line.split(':', 1)[1].strip()
